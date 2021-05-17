@@ -24,9 +24,20 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
+      - name: Get tags
+        id: get_tags
+        run: |
+          vX_X_X=$(echo $GITHUB_REF | sed 's/^refs\/tags\/v\(\(\(.*\)\..*\)\..*\)$/\3/')
+          vX_X=$(echo $GITHUB_REF | sed 's/^refs\/tags\/v\(\(\(.*\)\..*\)\..*\)$/\2/')
+          vX=$(echo $GITHUB_REF | sed 's/^refs\/tags\/v\(\(\(.*\)\..*\)\..*\)$/\1/')
+
+          echo ::set-output name=tags::$(
+            echo $(
+              for tag in latest $vX_X_X $vX_X $vX; do
+                echo ${{ secrets.DOCKER_HUB_USERNAME }}/docker-service-index:$tag
+              done
+            ) | sed 's/ /,/g'
+          )
 
       - name: Login to Docker Hub
         uses: docker/login-action@v1
@@ -45,7 +56,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/docker-service-index:latest,${{ secrets.DOCKER_HUB_USERNAME }}/docker-service-index:${{ steps.get_version.outputs.VERSION }}
+          tags: ${{ steps.get_tags.outputs.tags }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
